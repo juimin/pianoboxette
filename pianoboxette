@@ -1,0 +1,61 @@
+#!/usr/bin/python3
+
+import argparse
+from http import client
+import os
+import urllib.request
+
+API_KEY_NAME = "PIANOBOXETTE_API_KEY"
+UPLOAD_PATH = "/fresh_sheets/%s"
+
+API_KEY = ""
+
+
+def upload(data, path):
+    print(f"uploading file to {path}")
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/octet-stream",
+        "Dropbox-API-Arg": f'{{"path": "{path}"}}',
+    }
+
+    c = client.HTTPSConnection("content.dropboxapi.com")
+    c.request("POST", "/2/files/upload", data, headers)
+    r = c.getresponse()
+    if r.status != 200:
+        print(r.read())
+    else:
+        print("successfully uploaded")
+
+
+def handle_file(filepath):
+    upload(open(filepath, "rb"), UPLOAD_PATH % os.path.basename(filepath))
+
+
+def handle_url(url):
+    if not url.endswith(".pdf"):
+        raise Exception("URL does not lead to a pdf file")
+
+    filename = f'./{url.split("/")[-1]}'
+    print(f"downloading file from remote: {filename}")
+    urllib.request.urlretrieve(url, filename)
+    handle_file(filename)
+    os.remove(filename)
+
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-f", "--file", help="File path for upload")
+    parser.add_argument("-u", "--url", help="url file location for upload")
+    return parser.parse_args()
+
+
+if __name__ == "__main__":
+    API_KEY = os.getenv(API_KEY_NAME)
+    if not API_KEY:
+        raise Exception(f"Could not find api key at {API_KEY_NAME}")
+    args = get_args()
+    if args.file:
+        handle_file(args.file)
+    elif args.url:
+        handle_url(args.url)
